@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="DFS-powered music recommendations with live graph traversal visualization.">
+  <title>Recommendations — Musico</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ── Seed Song Banner ───────────────────────────── */
+    .seed-banner {
+      background:    var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding:       2.5rem 0;
+    }
+
+    .seed-inner {
+      display:     flex;
+      align-items: center;
+      gap:         1.5rem;
+      flex-wrap:   wrap;
+    }
+
+    .seed-cover {
+      width:         100px;
+      height:        100px;
+      border-radius: var(--radius-md);
+      object-fit:    cover;
+      border:        3px solid var(--purple);
+      box-shadow:    var(--shadow-glow);
+      flex-shrink:   0;
+      background:    var(--grad-primary);
+    }
+
+    .seed-info { flex: 1; }
+
+    .seed-eyebrow {
+      font-size:     0.75rem;
+      font-weight:   700;
+      text-transform:uppercase;
+      letter-spacing:0.1em;
+      color:         var(--purple-light);
+      margin-bottom: 0.3rem;
+    }
+
+    .seed-title  { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; margin-bottom: 0.2rem; }
+    .seed-artist { font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.8rem; }
+
+    .seed-meta {
+      display:  flex;
+      gap:      0.6rem;
+      flex-wrap:wrap;
+    }
+
+    .meta-pill {
+      font-size:     0.78rem;
+      font-weight:   600;
+      padding:       0.3rem 0.75rem;
+      border-radius: 20px;
+      background:    rgba(255,255,255,0.07);
+      border:        1px solid var(--border);
+    }
+
+    /* ── Graph + Results Layout ─────────────────────── */
+    .results-layout {
+      display:               grid;
+      grid-template-columns: 1fr 380px;
+      gap:                   2rem;
+      padding:               2.5rem 0;
+      align-items:           start;
+    }
+
+    /* ── Graph Panel ────────────────────────────────── */
+    .graph-panel {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: var(--radius-xl);
+      overflow:      hidden;
+    }
+
+    .panel-header {
+      display:         flex;
+      align-items:     center;
+      justify-content: space-between;
+      padding:         1.25rem 1.5rem;
+      border-bottom:   1px solid var(--border);
+    }
+
+    .panel-title {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size:   1rem;
+      display:     flex;
+      align-items: center;
+      gap:         0.5rem;
+    }
+
+    .graph-container {
+      position: relative;
+      min-height: 480px;
+    }
+
+    #graph-svg-container { width: 100%; }
+
+    /* ── DFS Step Panel ─────────────────────────────── */
+    .dfs-panel {
+      padding: 1.25rem 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .dfs-title {
+      font-size:     0.78rem;
+      font-weight:   700;
+      text-transform:uppercase;
+      letter-spacing:0.1em;
+      color:         var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .dfs-legend {
+      display:  flex;
+      gap:      1rem;
+      flex-wrap:wrap;
+      margin-bottom: 0.75rem;
+    }
+
+    .legend-item {
+      display:     flex;
+      align-items: center;
+      gap:         0.4rem;
+      font-size:   0.78rem;
+      color:       var(--text-secondary);
+    }
+
+    .legend-dot {
+      width:         10px;
+      height:        10px;
+      border-radius: 50%;
+    }
+
+    .dfs-log {
+      background:    var(--bg-primary);
+      border-radius: var(--radius-sm);
+      padding:       0.75rem;
+      font-size:     0.8rem;
+      font-family:   monospace;
+      color:         var(--text-secondary);
+      max-height:    120px;
+      overflow-y:    auto;
+      border:        1px solid var(--border);
+    }
+
+    .log-line { padding: 0.15rem 0; }
+    .log-visit   { color: var(--purple-light); }
+    .log-push    { color: var(--yellow); }
+    .log-recommend { color: var(--cyan); }
+
+    /* DFS controls */
+    .dfs-controls {
+      display:     flex;
+      align-items: center;
+      gap:         0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .dfs-speed {
+      font-size: 0.78rem;
+      color:     var(--text-muted);
+      margin-left: auto;
+    }
+
+    .speed-select {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: 6px;
+      color:         var(--text-primary);
+      font-size:     0.78rem;
+      padding:       0.3rem 0.5rem;
+      outline:       none;
+    }
+
+    /* ── Results Sidebar ────────────────────────────── */
+    .results-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    .results-panel {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: var(--radius-xl);
+      overflow:      hidden;
+    }
+
+    .results-list { padding: 0.5rem; max-height: 600px; overflow-y: auto; }
+
+    .result-item {
+      display:       flex;
+      align-items:   center;
+      gap:           0.75rem;
+      padding:       0.7rem 0.75rem;
+      border-radius: var(--radius-md);
+      cursor:        pointer;
+      transition:    var(--transition);
+      position:      relative;
+      opacity:       0;
+      transform:     translateX(20px);
+    }
+
+    .result-item.revealed {
+      opacity:   1;
+      transform: translateX(0);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .result-item:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .result-rank {
+      width:           28px;
+      height:          28px;
+      border-radius:   50%;
+      background:      var(--grad-primary);
+      color:           #fff;
+      font-size:       0.75rem;
+      font-weight:     800;
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      flex-shrink:     0;
+    }
+
+    .result-cover {
+      width:         46px;
+      height:        46px;
+      border-radius: var(--radius-sm);
+      object-fit:    cover;
+      flex-shrink:   0;
+      background:    var(--grad-cool);
+    }
+
+    .result-info { flex: 1; min-width: 0; }
+
+    .result-title  { font-weight: 600; font-size: 0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .result-artist { font-size: 0.78rem; color: var(--text-secondary); }
+
+    .result-score {
+      font-size:   0.75rem;
+      font-weight: 700;
+      color:       var(--cyan);
+      white-space: nowrap;
+    }
+
+    .result-score-bar {
+      width:         36px;
+      height:        3px;
+      background:    rgba(255,255,255,0.1);
+      border-radius: 2px;
+      margin-top:    2px;
+    }
+
+    .result-score-fill {
+      height:        100%;
+      border-radius: 2px;
+      background:    var(--grad-cool);
+    }
+
+    /* ── Stats Card ─────────────────────────────────── */
+    .stats-card {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding:       1.25rem 1.5rem;
+    }
+
+    .stats-grid {
+      display:               grid;
+      grid-template-columns: 1fr 1fr;
+      gap:                   1rem;
+      margin-top:            0.75rem;
+    }
+
+    .stat-box {
+      background:    var(--bg-secondary);
+      border-radius: var(--radius-md);
+      padding:       0.75rem;
+      text-align:    center;
+    }
+
+    .stat-box-value {
+      font-family: var(--font-heading);
+      font-size:   1.4rem;
+      font-weight: 800;
+      background:  var(--grad-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-box-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem; }
+
+    /* ── Loading overlay ────────────────────────────── */
+    .loading-overlay {
+      position:        absolute;
+      inset:           0;
+      display:         flex;
+      flex-direction:  column;
+      align-items:     center;
+      justify-content: center;
+      gap:             1rem;
+      background:      var(--bg-card);
+      z-index:         10;
+    }
+
+    .spinner {
+      width:         48px;
+      height:        48px;
+      border:        3px solid var(--border);
+      border-top:    3px solid var(--purple);
+      border-radius: 50%;
+      animation:     spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text { color: var(--text-secondary); font-size: 0.9rem; }
+
+    /* ── Stack visualizer ───────────────────────────── */
+    .stack-viz {
+      background:    var(--bg-secondary);
+      border:        1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding:       1.25rem 1.5rem;
+    }
+
+    .stack-items {
+      display:        flex;
+      flex-direction: column-reverse;
+      gap:            0.3rem;
+      margin-top:     0.75rem;
+      min-height:     60px;
+    }
+
+    .stack-item {
+      background:    rgba(124,58,237,0.1);
+      border:        1px solid rgba(124,58,237,0.3);
+      border-radius: var(--radius-sm);
+      padding:       0.3rem 0.65rem;
+      font-size:     0.78rem;
+      color:         var(--purple-light);
+      animation:     stack-in 0.2s ease;
+    }
+
+    .stack-item.top {
+      background:  rgba(247,37,133,0.15);
+      border-color:rgba(247,37,133,0.4);
+      color:       var(--pink);
+    }
+
+    @keyframes stack-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    @media (max-width: 1024px) {
+      .results-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-purple"></div>
+  <div class="orb orb-pink"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon">🎵</div>
+      Musico
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="explore.html" class="active">Explore</a></li>
+      <li><a href="explore.html" class="nav-cta">Explore More</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-content">
+    <!-- Seed song banner -->
+    <div class="seed-banner" id="seed-banner">
+      <div class="container">
+        <div class="seed-inner">
+          <div class="skeleton" style="width:100px;height:100px;border-radius:var(--radius-md);flex-shrink:0" id="seed-skeleton"></div>
+          <img id="seed-cover" class="seed-cover" style="display:none" src="" alt="">
+          <div class="seed-info" id="seed-info">
+            <div class="seed-eyebrow">🔍 Finding songs similar to...</div>
+            <div class="skeleton" style="height:32px;width:300px;margin-bottom:8px"></div>
+            <div class="skeleton" style="height:18px;width:180px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Layout -->
+    <div class="container">
+      <div class="results-layout">
+
+        <!-- Left: Graph + DFS log -->
+        <div>
+          <div class="graph-panel">
+            <div class="panel-header">
+              <div class="panel-title">🕸️ Song Relationship Graph</div>
+              <div style="display:flex;gap:0.5rem">
+                <button class="btn btn-ghost btn-sm" id="replay-btn">↺ Replay DFS</button>
+              </div>
+            </div>
+
+            <div class="graph-container" id="graph-container">
+              <div class="loading-overlay" id="graph-loading">
+                <div class="spinner"></div>
+                <div class="loading-text">Building graph & running DFS...</div>
+              </div>
+              <div id="graph-svg-container"></div>
+            </div>
+
+            <div class="dfs-panel">
+              <div class="dfs-title">DFS Traversal</div>
+
+              <div class="dfs-controls">
+                <div class="dfs-legend">
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div> Seed</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--purple-light)"></div> Visited</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div> Recommended</div>
+                  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div> In Stack</div>
+                </div>
+                <div class="dfs-speed">
+                  Speed:
+                  <select class="speed-select" id="speed-select" aria-label="Animation speed">
+                    <option value="700">Slow</option>
+                    <option value="400" selected>Normal</option>
+                    <option value="150">Fast</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="dfs-log" id="dfs-log">
+                <div class="log-line text-muted">Waiting for DFS to start...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stack visualizer -->
+          <div class="stack-viz" style="margin-top:1.25rem" id="stack-viz">
+            <div class="panel-title" style="font-size:0.9rem">📚 DFS Stack State</div>
+            <div class="stack-items" id="stack-items">
+              <div class="text-muted" style="font-size:0.78rem;text-align:center;padding:0.5rem">Stack is empty</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Results + Stats -->
+        <div class="results-sidebar">
+          <!-- Recommendations -->
+          <div class="results-panel">
+            <div class="panel-header">
+              <div class="panel-title">🎵 Recommendations</div>
+              <span id="rec-count" style="font-size:0.8rem;color:var(--text-muted)">via DFS</span>
+            </div>
+            <div class="results-list" id="results-list">
+              <!-- filled by JS -->
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="stats-card">
+            <div class="panel-title" style="font-size:0.9rem">📊 Graph Statistics</div>
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-box-value" id="stat-nodes">—</div>
+                <div class="stat-box-label">Graph Nodes</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-box-value" id="stat-edges">—</div>
+                <div class="stat-box-label">Edges</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-box-value" id="stat-steps">—</div>
+                <div class="stat-box-label">DFS Steps</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-box-value" id="stat-results">—</div>
+                <div class="stat-box-label">Recommendations</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Back button -->
+          <a href="explore.html" class="btn btn-secondary" style="justify-content:center">
+            ← Explore More Songs
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/graph-viz.js"></script>
+  <script>
+    const SESSION_ID = getSessionId();
+    const params     = new URLSearchParams(window.location.search);
+    const SONG_ID    = parseInt(params.get('id'));
+
+    let vizInstance   = null;
+    let dfsData       = null;
+    let songMap       = {};
+
+    if (!SONG_ID) {
+      window.location.href = 'explore.html';
+    }
+
+    // ── Load recommendations ─────────────────────────────
+    async function loadRecommendations() {
+      try {
+        const data = await api.getRecommendations(SONG_ID, 10);
+        dfsData = data;
+
+        // Seed song info
+        renderSeedSong(data.seedSong);
+
+        // Stats
+        document.getElementById('stat-nodes').textContent   = data.meta.graphSize;
+        document.getElementById('stat-edges').textContent   = data.meta.totalEdges;
+        document.getElementById('stat-steps').textContent   = data.meta.traversalSteps;
+        document.getElementById('stat-results').textContent = data.recommendations.length;
+        document.getElementById('rec-count').textContent    = `${data.recommendations.length} found via DFS`;
+
+        // Load subgraph for visualization
+        await loadGraph(data.seedSong, data.recommendations);
+
+        // Render result cards (hidden, revealed during DFS animation)
+        renderResultCards(data.recommendations);
+
+        // Hide loading, start DFS animation
+        document.getElementById('graph-loading').style.display = 'none';
+        setTimeout(() => startDFSAnimation(data.meta.steps, data.recommendations), 600);
+
+      } catch(e) {
+        document.getElementById('graph-loading').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <div class="empty-state-text">Failed to load recommendations.<br>Is the server running?</div>
+            <a href="explore.html" class="btn btn-primary" style="margin-top:1rem">← Back</a>
+          </div>`;
+      }
+    }
+
+    function renderSeedSong(song) {
+      document.getElementById('seed-skeleton').style.display = 'none';
+      const img = document.getElementById('seed-cover');
+      img.src   = song.cover_url || '';
+      img.alt   = song.title;
+      img.style.display = 'block';
+      img.onerror = () => { img.style.display = 'none'; };
+
+      const info = document.getElementById('seed-info');
+      info.innerHTML = `
+        <div class="seed-eyebrow">🔍 Finding songs similar to...</div>
+        <div class="seed-title">${song.title}</div>
+        <div class="seed-artist">${song.artist} · ${song.album || ''}</div>
+        <div class="seed-meta">
+          <span class="genre-badge ${genreClass(song.genre)}">${song.genre}</span>
+          <span class="meta-pill">🎵 ${song.bpm} BPM</span>
+          <span class="meta-pill">⚡ Energy ${Math.round(song.energy * 100)}%</span>
+          <span class="meta-pill">😊 Mood ${Math.round(song.valence * 100)}%</span>
+          <span class="meta-pill">⏱ ${formatDuration(song.duration)}</span>
+        </div>
+      `;
+
+      document.title = `Recommendations for ${song.title} — Musico`;
+    }
+
+    // ── Graph Visualization ──────────────────────────────
+    async function loadGraph(seedSong, recs) {
+      try {
+        const { nodes, edges } = await api.getSubgraph(SONG_ID, 2);
+
+        // Build songMap
+        nodes.forEach(n => { songMap[n.id] = n; });
+        recs.forEach(r  => { songMap[r.id] = r; });
+        songMap[seedSong.id] = seedSong;
+
+        vizInstance = new GraphVisualizer('graph-svg-container', { height: 480 });
+        vizInstance.render(nodes, edges, seedSong.id);
+
+        vizInstance.onNodeClick = (node) => {
+          if (node.id !== seedSong.id) {
+            showToast(`Getting recommendations for "${node.title}"...`, 'info');
+            setTimeout(() => {
+              window.location.href = `recommendations.html?id=${node.id}`;
+            }, 600);
+          }
+        };
+      } catch(e) {
+        console.warn('Graph visualization failed:', e);
+      }
+    }
+
+    // ── Result Cards ─────────────────────────────────────
+    function renderResultCards(recommendations) {
+      const list = document.getElementById('results-list');
+      list.innerHTML = '';
+
+      recommendations.forEach((song, i) => {
+        const item = document.createElement('div');
+        item.className   = 'result-item';
+        item.dataset.id  = song.id;
+        item.dataset.rank = i + 1;
+
+        const score      = song.similarityScore || 0;
+        item.innerHTML   = `
+          <div class="result-rank">${i + 1}</div>
+          <img class="result-cover" src="${song.cover_url || ''}" alt="${song.title}"
+               onerror="this.style.background='var(--grad-cool)';this.src=''">
+          <div class="result-info">
+            <div class="result-title">${song.title}</div>
+            <div class="result-artist">${song.artist} · ${song.genre}</div>
+          </div>
+          <div>
+            <div class="result-score">${score}%</div>
+            <div class="result-score-bar">
+              <div class="result-score-fill" style="width:${score}%"></div>
+            </div>
+          </div>
+        `;
+
+        item.addEventListener('click', () => {
+          window.location.href = `recommendations.html?id=${song.id}`;
+        });
+
+        list.appendChild(item);
+      });
+    }
+
+    // ── DFS Animation ────────────────────────────────────
+    function startDFSAnimation(steps, recommendations) {
+      const log       = document.getElementById('dfs-log');
+      const stackEl   = document.getElementById('stack-items');
+      const speedSel  = document.getElementById('speed-select');
+      const recItems  = document.querySelectorAll('.result-item');
+
+      log.innerHTML = '';
+      let recRevealIndex = 0;
+
+      const delay = () => parseInt(speedSel.value);
+      let i = 0;
+
+      function nextStep() {
+        if (i >= steps.length) return;
+        const step = steps[i];
+        const song = songMap[step.nodeId] || { title: `Song #${step.nodeId}`, id: step.nodeId };
+
+        // Log line
+        const line = document.createElement('div');
+        line.className = `log-line log-${step.action}`;
+        const icons = { visit: '→ Visit', push: '↓ Push', recommend: '★ Recommend' };
+        line.textContent = `${icons[step.action] || step.action}: "${song.title}"`;
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+
+        // Stack visualization
+        if (step.action === 'push' || step.action === 'visit') {
+          const stackArr = step.stack || [];
+          stackEl.innerHTML = '';
+          if (stackArr.length === 0) {
+            stackEl.innerHTML = '<div class="text-muted" style="font-size:0.78rem;text-align:center;padding:0.5rem">Stack is empty</div>';
+          } else {
+            stackArr.forEach((id, idx) => {
+              const s  = songMap[id] || { title: `#${id}` };
+              const el = document.createElement('div');
+              el.className = `stack-item${idx === stackArr.length - 1 ? ' top' : ''}`;
+              el.textContent = `[${id}] ${s.title}`;
+              stackEl.appendChild(el);
+            });
+          }
+        }
+
+        // Reveal result card when recommended
+        if (step.action === 'recommend') {
+          const matchItem = document.querySelector(`.result-item[data-id="${step.nodeId}"]`);
+          if (matchItem) {
+            setTimeout(() => matchItem.classList.add('revealed'), 100);
+          }
+        }
+
+        i++;
+        setTimeout(nextStep, delay());
+      }
+
+      nextStep();
+    }
+
+    // ── Replay Button ────────────────────────────────────
+    document.getElementById('replay-btn').addEventListener('click', () => {
+      if (!dfsData) return;
+      // Reset cards
+      document.querySelectorAll('.result-item').forEach(el => el.classList.remove('revealed'));
+      // Clear log
+      document.getElementById('dfs-log').innerHTML = '<div class="log-line text-muted">Replaying...</div>';
+      // Re-render graph
+      if (vizInstance && dfsData.seedSong) {
+        api.getSubgraph(SONG_ID, 2).then(({ nodes, edges }) => {
+          vizInstance.render(nodes, edges, dfsData.seedSong.id);
+          setTimeout(() => startDFSAnimation(dfsData.meta.steps, dfsData.recommendations), 600);
+        });
+      } else {
+        setTimeout(() => startDFSAnimation(dfsData.meta.steps, dfsData.recommendations), 300);
+      }
+    });
+
+    loadRecommendations();
+  </script>
+</body>
+</html>

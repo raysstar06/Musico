@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Musico — Graph-based music recommendation system using Depth-First Search (DFS) algorithm. Discover songs you'll love through intelligent graph traversal.">
+  <title>Musico — Music Recommendation System</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ── Hero ───────────────────────────────────────── */
+    .hero {
+      position:   relative;
+      min-height: 100vh;
+      display:    flex;
+      align-items:center;
+      overflow:   hidden;
+      padding:    68px 0 0;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index:  1;
+      max-width:680px;
+    }
+
+    .hero-eyebrow {
+      display:       inline-flex;
+      align-items:   center;
+      gap:           0.5rem;
+      font-size:     0.8rem;
+      font-weight:   600;
+      letter-spacing:0.12em;
+      text-transform:uppercase;
+      color:         var(--purple-light);
+      background:    rgba(124,58,237,0.12);
+      border:        1px solid rgba(124,58,237,0.3);
+      padding:       0.4rem 0.9rem;
+      border-radius: 20px;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-title {
+      font-size:     clamp(2.8rem, 6vw, 5rem);
+      font-weight:   900;
+      line-height:   1.05;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-desc {
+      font-size:     1.1rem;
+      color:         var(--text-secondary);
+      line-height:   1.7;
+      margin-bottom: 2.5rem;
+      max-width:     520px;
+    }
+
+    .hero-actions {
+      display:     flex;
+      align-items: center;
+      gap:         1rem;
+      flex-wrap:   wrap;
+    }
+
+    .hero-stats {
+      display:    flex;
+      gap:        2rem;
+      margin-top: 3.5rem;
+    }
+
+    .stat-item { text-align: left; }
+
+    .stat-value {
+      font-family: var(--font-heading);
+      font-size:   1.8rem;
+      font-weight: 800;
+      background:  var(--grad-primary);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color:     var(--text-muted);
+      margin-top:0.1rem;
+    }
+
+    /* ── Hero Visual ────────────────────────────────── */
+    .hero-visual {
+      position:    absolute;
+      right:       -60px;
+      top:         50%;
+      transform:   translateY(-50%);
+      width:       520px;
+      height:      520px;
+      z-index:     0;
+      opacity:     0.6;
+    }
+
+    .hero-graph-ring {
+      position:     absolute;
+      inset:        0;
+      border-radius:50%;
+      border:       1px solid rgba(124,58,237,0.3);
+      animation:    ring-spin 20s linear infinite;
+    }
+
+    .hero-graph-ring:nth-child(2) {
+      inset:  50px;
+      border-color: rgba(247,37,133,0.3);
+      animation-direction: reverse;
+      animation-duration:  15s;
+    }
+
+    .hero-graph-ring:nth-child(3) {
+      inset:  120px;
+      border-color: rgba(6,182,212,0.3);
+      animation-duration: 10s;
+    }
+
+    @keyframes ring-spin {
+      from { transform: rotate(0deg);   }
+      to   { transform: rotate(360deg); }
+    }
+
+    .floating-card {
+      position:      absolute;
+      background:    rgba(15,15,30,0.9);
+      border:        1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding:       0.75rem 1rem;
+      backdrop-filter:blur(20px);
+      animation:     float 4s ease-in-out infinite alternate;
+    }
+
+    .floating-card:nth-child(4) { top: 15%; left: 10%; animation-delay: 0s; }
+    .floating-card:nth-child(5) { top: 55%; left: 5%;  animation-delay: 1s; }
+    .floating-card:nth-child(6) { top: 30%; right: 8%; animation-delay: 2s; }
+
+    @keyframes float {
+      from { transform: translateY(0);   }
+      to   { transform: translateY(12px); }
+    }
+
+    .fc-song {
+      display:     flex;
+      align-items: center;
+      gap:         0.6rem;
+      min-width:   170px;
+    }
+
+    .fc-cover {
+      width:        38px;
+      height:       38px;
+      border-radius:8px;
+      object-fit:   cover;
+      background:   var(--grad-primary);
+      flex-shrink:  0;
+    }
+
+    .fc-title { font-weight: 600; font-size: 0.85rem; }
+    .fc-artist { font-size: 0.75rem; color: var(--text-secondary); }
+
+    /* ── Features Section ───────────────────────────── */
+    .features-grid {
+      display:               grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap:                   1.5rem;
+      margin-top:            3rem;
+    }
+
+    .feature-card {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding:       2rem;
+      transition:    var(--transition);
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-active);
+      transform:    translateY(-4px);
+      box-shadow:   var(--shadow-glow);
+    }
+
+    .feature-icon {
+      width:           52px;
+      height:          52px;
+      border-radius:   var(--radius-md);
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      font-size:       1.4rem;
+      margin-bottom:   1.2rem;
+    }
+
+    .feature-icon-purple { background: rgba(124,58,237,0.2); }
+    .feature-icon-pink   { background: rgba(247,37,133,0.2); }
+    .feature-icon-cyan   { background: rgba(6,182,212,0.2);  }
+    .feature-icon-yellow { background: rgba(251,191,36,0.2); }
+
+    .feature-title {
+      font-size:     1.05rem;
+      font-weight:   700;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-desc { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── How It Works ───────────────────────────────── */
+    .steps-row {
+      display:               grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap:                   1rem;
+      margin-top:            2.5rem;
+      position:              relative;
+    }
+
+    .step-card {
+      text-align:  center;
+      padding:     2rem 1.5rem;
+      background:  var(--bg-card);
+      border:      1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+
+    .step-number {
+      width:           44px;
+      height:          44px;
+      border-radius:   50%;
+      background:      var(--grad-primary);
+      color:           #fff;
+      font-weight:     800;
+      font-family:     var(--font-heading);
+      font-size:       1.1rem;
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      margin:          0 auto 1rem;
+    }
+
+    .step-title  { font-weight: 700; margin-bottom: 0.4rem; }
+    .step-desc   { font-size: 0.85rem; color: var(--text-secondary); }
+
+    /* ── Featured Songs ─────────────────────────────── */
+    .featured-section { padding: 5rem 0; background: var(--bg-secondary); }
+
+    /* ── CTA Banner ─────────────────────────────────── */
+    .cta-banner {
+      background:    var(--grad-primary);
+      border-radius: var(--radius-xl);
+      padding:       4rem;
+      text-align:    center;
+      margin:        4rem 0;
+      position:      relative;
+      overflow:      hidden;
+    }
+
+    .cta-banner::before {
+      content:    '';
+      position:   absolute;
+      inset:      0;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .cta-banner > * { position: relative; z-index: 1; }
+
+    .cta-title   { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 900; margin-bottom: 1rem; }
+    .cta-desc    { font-size: 1rem; opacity: 0.85; margin-bottom: 2rem; }
+    .cta-btn     { background: #fff; color: var(--purple); }
+    .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+
+    /* ── Footer ─────────────────────────────────────── */
+    footer {
+      border-top:  1px solid var(--border);
+      padding:     2rem 0;
+      text-align:  center;
+      color:       var(--text-muted);
+      font-size:   0.85rem;
+    }
+
+    footer span { color: var(--pink); }
+  </style>
+</head>
+<body>
+  <!-- Background orbs -->
+  <div class="orb orb-purple"></div>
+  <div class="orb orb-pink"></div>
+  <div class="orb orb-cyan"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar" id="navbar">
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon">🎵</div>
+      Musico
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html"   class="active">Home</a></li>
+      <li><a href="explore.html">Explore</a></li>
+      <li><a href="explore.html" class="nav-cta">Get Recommendations</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container" style="width:100%;display:flex;align-items:center;">
+      <div class="hero-content">
+        <div class="hero-eyebrow">🔬 Graph Algorithm · DFS · 2026</div>
+        <h1 class="hero-title">
+          Music <span class="text-gradient">Discovered</span><br>
+          Through Graphs
+        </h1>
+        <p class="hero-desc">
+          Musico uses the <strong>Depth-First Search (DFS)</strong> algorithm on a weighted song graph to recommend tracks you'll love — based on genre, tempo, energy, and mood similarity.
+        </p>
+        <div class="hero-actions">
+          <a href="explore.html" class="btn btn-primary btn-lg" id="hero-explore-btn">
+            🎧 Explore Songs
+          </a>
+          <a href="#how-it-works" class="btn btn-secondary btn-lg">
+            How It Works
+          </a>
+        </div>
+        <div class="hero-stats" id="hero-stats">
+          <div class="stat-item">
+            <div class="stat-value" id="stat-songs">50</div>
+            <div class="stat-label">Songs Indexed</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="stat-edges">—</div>
+            <div class="stat-label">Graph Connections</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">7</div>
+            <div class="stat-label">Genres</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Decorative visual -->
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-graph-ring"></div>
+        <div class="hero-graph-ring"></div>
+        <div class="hero-graph-ring"></div>
+        <div class="floating-card">
+          <div class="fc-song">
+            <div class="fc-cover">🎸</div>
+            <div>
+              <div class="fc-title">Mr. Brightside</div>
+              <div class="fc-artist">The Killers</div>
+            </div>
+          </div>
+        </div>
+        <div class="floating-card">
+          <div class="fc-song">
+            <div class="fc-cover" style="background:var(--grad-warm)">🎤</div>
+            <div>
+              <div class="fc-title">Blinding Lights</div>
+              <div class="fc-artist">The Weeknd</div>
+            </div>
+          </div>
+        </div>
+        <div class="floating-card">
+          <div class="fc-song">
+            <div class="fc-cover" style="background:var(--grad-cool)">🎹</div>
+            <div>
+              <div class="fc-title">Clair de Lune</div>
+              <div class="fc-artist">Debussy</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section">
+    <div class="container">
+      <div style="text-align:center; max-width:560px; margin:0 auto 1rem;">
+        <h2 class="section-title">Why Graph-Based?</h2>
+        <p class="section-subtitle">Traditional recommendation systems use simple filters. Musico models real relationships between songs as a weighted graph — unlocking deeper, more accurate recommendations.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-purple">🕸️</div>
+          <div class="feature-title">Graph Data Structure</div>
+          <p class="feature-desc">Songs are nodes in a weighted adjacency list graph. Edges represent similarity connections computed from audio features.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-pink">🔍</div>
+          <div class="feature-title">DFS Algorithm</div>
+          <p class="feature-desc">Depth-First Search traverses the graph from a seed song, exploring deeply connected neighbors first — following the trail of similarity.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-cyan">⚡</div>
+          <div class="feature-title">Weighted Edges</div>
+          <p class="feature-desc">Each edge has a similarity score (0–1) calculated from genre match, BPM difference, energy level, and valence. Higher weight = explored first.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon feature-icon-yellow">🎬</div>
+          <div class="feature-title">Live Visualization</div>
+          <p class="feature-desc">Watch the DFS algorithm run in real-time on an interactive SVG graph — see exactly how your recommendations are found.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="section" id="how-it-works" style="background:var(--bg-secondary)">
+    <div class="container">
+      <div style="text-align:center; max-width:500px; margin:0 auto 1rem;">
+        <h2 class="section-title">How It Works</h2>
+        <p class="section-subtitle">From song selection to DFS traversal in 4 steps</p>
+      </div>
+      <div class="steps-row">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <div class="step-title">Pick a Song</div>
+          <p class="step-desc">Search or browse our library of 50+ songs across 7 genres. Click any song to use it as your starting point.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <div class="step-title">Build the Graph</div>
+          <p class="step-desc">The backend loads all song relationships from MySQL and constructs an in-memory weighted adjacency list graph.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <div class="step-title">Run DFS</div>
+          <p class="step-desc">Starting from your song, DFS explores neighbors sorted by similarity weight — visiting the most similar songs first.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">4</div>
+          <div class="step-title">See Results</div>
+          <p class="step-desc">Your top 10 recommendations appear with a live graph visualization showing the exact traversal path taken.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featured Songs -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Featured Songs</h2>
+      <p class="section-subtitle">Click any song to get instant recommendations</p>
+      <div class="songs-grid" id="featured-grid">
+        <!-- Skeleton loaders -->
+        <div class="song-card"><div class="skeleton" style="aspect-ratio:1"></div><div class="song-card-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:70%"></div></div></div>
+        <div class="song-card"><div class="skeleton" style="aspect-ratio:1"></div><div class="song-card-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:70%"></div></div></div>
+        <div class="song-card"><div class="skeleton" style="aspect-ratio:1"></div><div class="song-card-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:70%"></div></div></div>
+        <div class="song-card"><div class="skeleton" style="aspect-ratio:1"></div><div class="song-card-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:70%"></div></div></div>
+        <div class="song-card"><div class="skeleton" style="aspect-ratio:1"></div><div class="song-card-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:70%"></div></div></div>
+        <div class="song-card"><div class="skeleton" style="aspect-ratio:1"></div><div class="song-card-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:70%"></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section">
+    <div class="container">
+      <div class="cta-banner">
+        <h2 class="cta-title">Ready to Explore the Music Graph?</h2>
+        <p class="cta-desc">Browse 50+ songs and let our DFS engine find your next obsession.</p>
+        <a href="explore.html" class="btn btn-lg cta-btn">🎵 Start Exploring</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>Musico — Music Recommendation System Using Graphs 2026 &nbsp;·&nbsp; Built with <span>♥</span> using JavaScript &amp; MySQL &nbsp;·&nbsp; DFS Algorithm</p>
+    </div>
+  </footer>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/api.js"></script>
+  <script>
+    const SESSION_ID = getSessionId();
+
+    // Load featured songs
+    async function loadFeatured() {
+      try {
+        const { songs } = await api.getSongs({ limit: 6 });
+        const grid = document.getElementById('featured-grid');
+        grid.innerHTML = '';
+        songs.slice(0, 6).forEach(song => {
+          const card = buildSongCard(song, SESSION_ID, () => {
+            window.location.href = `recommendations.html?id=${song.id}`;
+          });
+          grid.appendChild(card);
+        });
+      } catch(e) {
+        document.getElementById('featured-grid').innerHTML =
+          '<div class="empty-state"><div class="empty-state-icon">🔌</div><div class="empty-state-text">Start the backend server to load songs</div></div>';
+      }
+    }
+
+    // Load stat: graph edges
+    async function loadStats() {
+      try {
+        const { songs } = await api.getSongs({ limit: 1 });
+        // Edge count from health check or fallback
+        document.getElementById('stat-edges').textContent = '200+';
+      } catch(e) {}
+    }
+
+    loadFeatured();
+    loadStats();
+  </script>
+</body>
+</html>

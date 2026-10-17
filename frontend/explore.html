@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Browse and search 50+ songs across 7 genres. Click any song to get DFS-powered graph recommendations.">
+  <title>Explore Songs — Musico</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .explore-header {
+      background:      var(--bg-secondary);
+      border-bottom:   1px solid var(--border);
+      padding:         2.5rem 0 2rem;
+    }
+
+    .explore-title { font-size: 2rem; margin-bottom: 0.3rem; }
+
+    .explore-controls {
+      display:     flex;
+      align-items: center;
+      gap:         1rem;
+      margin-top:  1.5rem;
+      flex-wrap:   wrap;
+    }
+
+    .explore-controls .search-wrapper { flex: 1; min-width: 240px; max-width: 420px; }
+
+    .song-count {
+      font-size:  0.85rem;
+      color:      var(--text-muted);
+      margin-left:auto;
+    }
+
+    /* Genre sidebar */
+    .explore-layout {
+      display:   grid;
+      grid-template-columns: 220px 1fr;
+      gap:       2rem;
+      padding:   2.5rem 0;
+      align-items: start;
+    }
+
+    .sidebar {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding:       1.25rem;
+      position:      sticky;
+      top:           88px;
+    }
+
+    .sidebar-title {
+      font-size:     0.75rem;
+      font-weight:   700;
+      text-transform:uppercase;
+      letter-spacing:0.1em;
+      color:         var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .sidebar-link {
+      display:       flex;
+      align-items:   center;
+      gap:           0.6rem;
+      padding:       0.55rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-size:     0.88rem;
+      font-weight:   500;
+      color:         var(--text-secondary);
+      cursor:        pointer;
+      transition:    var(--transition);
+      border:        1px solid transparent;
+    }
+
+    .sidebar-link:hover {
+      background:  var(--bg-card-hover);
+      color:       var(--text-primary);
+    }
+
+    .sidebar-link.active {
+      background:   rgba(124,58,237,0.12);
+      border-color: var(--border-active);
+      color:        var(--purple-light);
+    }
+
+    .sidebar-link .dot {
+      width:        8px;
+      height:       8px;
+      border-radius:50%;
+      flex-shrink:  0;
+    }
+
+    .sidebar-count {
+      margin-left: auto;
+      font-size:   0.75rem;
+      color:       var(--text-muted);
+    }
+
+    /* Sort & grid controls */
+    .grid-controls {
+      display:         flex;
+      align-items:     center;
+      justify-content: space-between;
+      margin-bottom:   1.5rem;
+    }
+
+    .sort-select {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color:         var(--text-primary);
+      font-family:   var(--font-body);
+      font-size:     0.85rem;
+      padding:       0.45rem 0.75rem;
+      outline:       none;
+      cursor:        pointer;
+    }
+
+    .sort-select:focus { border-color: var(--border-active); }
+
+    /* Loading state */
+    .grid-loading {
+      display:               grid;
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      gap:                   1.25rem;
+    }
+
+    .skeleton-card { border-radius: var(--radius-lg); overflow: hidden; }
+    .skeleton-cover { aspect-ratio:1; }
+    .skeleton-body  { padding: 1rem; }
+
+    /* Pagination */
+    .pagination {
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      gap:             0.5rem;
+      margin-top:      2.5rem;
+    }
+
+    .page-btn {
+      width:         38px;
+      height:        38px;
+      border-radius: var(--radius-sm);
+      border:        1px solid var(--border);
+      background:    var(--bg-card);
+      color:         var(--text-secondary);
+      font-size:     0.88rem;
+      cursor:        pointer;
+      display:       flex;
+      align-items:   center;
+      justify-content:center;
+      transition:    var(--transition);
+    }
+
+    .page-btn:hover, .page-btn.active {
+      background:   var(--grad-primary);
+      border-color: transparent;
+      color:        #fff;
+    }
+
+    @media (max-width: 768px) {
+      .explore-layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-purple"></div>
+  <div class="orb orb-cyan"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon">🎵</div>
+      Musico
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="explore.html" class="active">Explore</a></li>
+      <li><a href="explore.html" class="nav-cta">Get Recommendations</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-content">
+    <!-- Explore Header -->
+    <div class="explore-header">
+      <div class="container">
+        <h1 class="explore-title">🎵 Explore Songs</h1>
+        <p class="text-secondary" style="font-size:0.95rem">Click any song to get DFS-powered graph recommendations</p>
+
+        <div class="explore-controls">
+          <!-- Search -->
+          <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input
+              type="search"
+              class="search-input"
+              id="search-input"
+              placeholder="Search songs or artists..."
+              autocomplete="off"
+              aria-label="Search songs"
+            >
+            <div class="search-dropdown" id="search-dropdown" role="listbox"></div>
+          </div>
+
+          <span class="song-count" id="song-count">Loading...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layout -->
+    <div class="container">
+      <div class="explore-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" aria-label="Genre filters">
+          <div class="sidebar-title">Genre</div>
+          <div id="genre-list">
+            <div class="sidebar-link active" data-genre="" id="genre-all">
+              <span class="dot" style="background:var(--purple)"></span>
+              All Genres
+              <span class="sidebar-count" id="count-all">—</span>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Main grid -->
+        <main>
+          <div class="grid-controls">
+            <div>
+              <span id="active-genre-label" style="font-weight:600;font-size:0.95rem">All Songs</span>
+            </div>
+            <select class="sort-select" id="sort-select" aria-label="Sort songs">
+              <option value="title">Sort: A–Z</option>
+              <option value="bpm">Sort: BPM</option>
+              <option value="energy">Sort: Energy</option>
+              <option value="valence">Sort: Mood</option>
+            </select>
+          </div>
+
+          <!-- Skeleton loaders -->
+          <div class="songs-grid" id="songs-grid">
+            <div class="skeleton-card"><div class="skeleton skeleton-cover"></div><div class="skeleton-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:65%"></div></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-cover"></div><div class="skeleton-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:65%"></div></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-cover"></div><div class="skeleton-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:65%"></div></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-cover"></div><div class="skeleton-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:65%"></div></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-cover"></div><div class="skeleton-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:65%"></div></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-cover"></div><div class="skeleton-body"><div class="skeleton" style="height:14px;margin-bottom:6px"></div><div class="skeleton" style="height:11px;width:65%"></div></div></div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/api.js"></script>
+  <script>
+    const SESSION_ID = getSessionId();
+
+    const GENRE_COLORS = {
+      'Pop':        '#f72585',
+      'Rock':       '#ef4444',
+      'Hip-Hop':    '#fbbf24',
+      'Electronic': '#06b6d4',
+      'R&B':        '#a855f7',
+      'Jazz':       '#10b981',
+      'Classical':  '#a0a0c0',
+    };
+
+    let allSongs   = [];
+    let filteredSongs = [];
+    let activeGenre   = '';
+    let sortBy        = 'title';
+
+    // ── Load songs ──────────────────────────────────────
+    async function loadSongs() {
+      try {
+        const { songs, total } = await api.getSongs({ limit: 100 });
+        allSongs = songs;
+        document.getElementById('song-count').textContent = `${total} songs`;
+        document.getElementById('count-all').textContent  = total;
+
+        buildGenreSidebar(songs);
+        filterAndRender();
+      } catch(e) {
+        document.getElementById('songs-grid').innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-state-icon">🔌</div>
+            <div class="empty-state-text">Cannot connect to Musico server.<br>Run: <code>npm run dev</code></div>
+          </div>`;
+        document.getElementById('song-count').textContent = 'Server offline';
+      }
+    }
+
+    // ── Genre Sidebar ───────────────────────────────────
+    function buildGenreSidebar(songs) {
+      const counts = {};
+      songs.forEach(s => { counts[s.genre] = (counts[s.genre] || 0) + 1; });
+
+      const genreList = document.getElementById('genre-list');
+      document.getElementById('count-all').textContent = songs.length;
+
+      Object.entries(counts).sort().forEach(([genre, count]) => {
+        const div = document.createElement('div');
+        div.className    = 'sidebar-link';
+        div.dataset.genre= genre;
+        div.innerHTML    = `
+          <span class="dot" style="background:${GENRE_COLORS[genre] || '#888'}"></span>
+          ${genre}
+          <span class="sidebar-count">${count}</span>
+        `;
+        div.addEventListener('click', () => setGenre(genre));
+        genreList.appendChild(div);
+      });
+
+      document.getElementById('genre-all').addEventListener('click', () => setGenre(''));
+    }
+
+    function setGenre(genre) {
+      activeGenre = genre;
+      document.querySelectorAll('.sidebar-link').forEach(el => {
+        el.classList.toggle('active', el.dataset.genre === genre);
+      });
+      document.getElementById('active-genre-label').textContent = genre || 'All Songs';
+      filterAndRender();
+    }
+
+    // ── Filter + Sort + Render ──────────────────────────
+    function filterAndRender() {
+      filteredSongs = allSongs
+        .filter(s => !activeGenre || s.genre === activeGenre)
+        .sort((a, b) => {
+          if (sortBy === 'title')   return a.title.localeCompare(b.title);
+          if (sortBy === 'bpm')     return b.bpm - a.bpm;
+          if (sortBy === 'energy')  return b.energy - a.energy;
+          if (sortBy === 'valence') return b.valence - a.valence;
+          return 0;
+        });
+
+      renderGrid(filteredSongs);
+    }
+
+    function renderGrid(songs) {
+      const grid = document.getElementById('songs-grid');
+      grid.innerHTML = '';
+
+      if (songs.length === 0) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">🔍</div><div class="empty-state-text">No songs found</div></div>';
+        return;
+      }
+
+      songs.forEach(song => {
+        const card = buildSongCard(song, SESSION_ID, () => {
+          window.location.href = `recommendations.html?id=${song.id}`;
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    // ── Search ──────────────────────────────────────────
+    const searchInput    = document.getElementById('search-input');
+    const searchDropdown = document.getElementById('search-dropdown');
+    let searchTimer;
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const q = searchInput.value.trim();
+      if (!q) { searchDropdown.classList.remove('visible'); filterAndRender(); return; }
+
+      searchTimer = setTimeout(async () => {
+        try {
+          const { songs } = await api.searchSongs(q);
+          showSearchResults(songs);
+          // Also filter local list
+          const ql = q.toLowerCase();
+          renderGrid(allSongs.filter(s =>
+            s.title.toLowerCase().includes(ql) ||
+            s.artist.toLowerCase().includes(ql)
+          ));
+        } catch(e) {}
+      }, 300);
+    });
+
+    function showSearchResults(songs) {
+      if (!songs.length) { searchDropdown.classList.remove('visible'); return; }
+      searchDropdown.innerHTML = '';
+      songs.slice(0, 6).forEach(song => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.innerHTML = `
+          <img class="search-result-thumb" src="${song.cover_url || ''}" alt="${song.title}"
+               onerror="this.style.background='var(--grad-cool)';this.src=''">
+          <div class="search-result-info">
+            <div class="search-result-title">${song.title}</div>
+            <div class="search-result-artist">${song.artist} · ${song.genre}</div>
+          </div>
+        `;
+        item.addEventListener('click', () => {
+          window.location.href = `recommendations.html?id=${song.id}`;
+        });
+        searchDropdown.appendChild(item);
+      });
+      searchDropdown.classList.add('visible');
+    }
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.search-wrapper')) {
+        searchDropdown.classList.remove('visible');
+      }
+    });
+
+    // ── Sort ────────────────────────────────────────────
+    document.getElementById('sort-select').addEventListener('change', e => {
+      sortBy = e.target.value;
+      filterAndRender();
+    });
+
+    loadSongs();
+  </script>
+</body>
+</html>
